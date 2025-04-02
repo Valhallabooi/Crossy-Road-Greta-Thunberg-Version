@@ -1,6 +1,11 @@
 import pygame
 import random
 import sys
+import os
+
+
+#Get the current working directory
+print("Current working directory:", os.getcwd())
 
 # Initialize pygame
 pygame.init()
@@ -46,7 +51,7 @@ font = pygame.font.Font(None, 36)  # Font for displaying the score
 try:
     player_image = pygame.image.load("Crossy-Road-Greta-Thunberg-Version/Greta_Thunberg.png")
     car_image = pygame.image.load("Crossy-Road-Greta-Thunberg-Version/car.png")
-    background_image = pygame.image.load("Crossy-Road-Greta-Thunberg-Version/background.png")  # Placeholder background
+    background_image = pygame.image.load("Crossy-Road-Greta-Thunberg-Version/background.png")  #Packground
 except pygame.error as e:
     print(f"Error loading image: {e}")
     sys.exit()
