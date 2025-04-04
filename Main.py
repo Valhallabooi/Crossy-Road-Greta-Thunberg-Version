@@ -4,8 +4,14 @@ import sys
 import os
 
 
-#Get the current working directory
+# Get the current working directory
 print("Current working directory:", os.getcwd())
+
+# Import os for path handling
+import os
+
+# Get the base directory of the script
+base_path = os.path.dirname(os.path.abspath(__file__))
 
 # Initialize pygame
 pygame.init()
@@ -47,11 +53,11 @@ cars = []
 score = 0
 font = pygame.font.Font(None, 36)  # Font for displaying the score
 
-# Load images
+# Load images using relative paths
 try:
-    player_image = pygame.image.load("Crossy-Road-Greta-Thunberg-Version/Greta_Thunberg.png")
-    car_image = pygame.image.load("Crossy-Road-Greta-Thunberg-Version/car.png")
-    background_image = pygame.image.load("Crossy-Road-Greta-Thunberg-Version/background.png")  #Packground
+    player_image = pygame.image.load(os.path.join(base_path, "Greta_Thunberg.png"))
+    car_image = pygame.image.load(os.path.join(base_path, "car.png"))
+    background_image = pygame.image.load(os.path.join(base_path, "background.png"))  # Background
 except pygame.error as e:
     print(f"Error loading image: {e}")
     sys.exit()
