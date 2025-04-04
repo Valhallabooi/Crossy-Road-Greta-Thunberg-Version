@@ -3,13 +3,6 @@ import random
 import sys
 import os
 
-
-# Get the current working directory
-print("Current working directory:", os.getcwd())
-
-# Import os for path handling
-import os
-
 # Get the base directory of the script
 base_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -38,10 +31,6 @@ player_x = 10  # Start near the left edge
 player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2  # Center vertically
 STEP_SIZE = 40  # Movement step size
 
-# Define hitbox dimensions
-HITBOX_WIDTH = PLAYER_WIDTH  # You can adjust this to make the hitbox smaller or larger
-HITBOX_HEIGHT = PLAYER_HEIGHT  # Same for height
-
 # Car settings
 CAR_WIDTH = 60
 CAR_HEIGHT = 40
@@ -60,6 +49,7 @@ try:
     background_image = pygame.image.load(os.path.join(base_path, "background.png"))  # Background
 except pygame.error as e:
     print(f"Error loading image: {e}")
+    pygame.quit()
     sys.exit()
 
 # Scale up the images
@@ -84,7 +74,7 @@ def create_car():
 
     # Ensure there is a gap between cars for the player to pass through
     for existing_car in cars:
-        if abs(existing_car["x"] - lane_x) < HITBOX_WIDTH + STEP_SIZE:
+        if abs(existing_car["x"] - lane_x) < PLAYER_WIDTH + STEP_SIZE:
             # If the gap is too small, adjust the lane_x to create a larger gap
             lane_x += STEP_SIZE * 2
             lane_x %= SCREEN_WIDTH  # Wrap around to stay within screen bounds
@@ -108,18 +98,19 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RIGHT:
+            if event.key == pygame.K_SPACE:  # Space key to move player
                 if player_x < SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2:  # Move player until center
                     player_x += STEP_SIZE
                     score += 1  # Increase score when moving right
                 else:  # Move background and obstacles instead of the player
                     background_offset -= STEP_SIZE
+                    score += 1
                     for car in cars:
                         car["x"] -= STEP_SIZE
 
     # Draw background (looping)
-    screen.blit(background_image, (background_offset % SCREEN_WIDTH, 0))
-    screen.blit(background_image, ((background_offset % SCREEN_WIDTH) - SCREEN_WIDTH, 0))
+    for i in range(2):  # Simplify background drawing
+        screen.blit(background_image, ((background_offset % SCREEN_WIDTH) - SCREEN_WIDTH * i, 0))
 
     # Draw player
     screen.blit(player_image, (player_x, player_y))
@@ -146,7 +137,7 @@ while running:
             sys.exit()
 
     # Debugging: Draw player hitbox
-    pygame.draw.rect(screen, GREEN, (player_x, player_y, HITBOX_WIDTH, HITBOX_HEIGHT), 2)
+    pygame.draw.rect(screen, BLACK, (player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT), 2)
 
     # Display score
     score_text = font.render(f"Score: {score}", True, BLACK)
