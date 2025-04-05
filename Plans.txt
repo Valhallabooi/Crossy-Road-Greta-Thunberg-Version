@@ -1,0 +1,6 @@
+#Fix spawn locations for cars
+#    Make the cars spawn in spesific columns with a distance between them big enough for the player to effectively be in a safe zone between them.
+#Fix player movement
+#    Change the player's step distance so that every 2 steps the player takes will place them in one of the safe lanes.
+Fix scaling for car
+    The cars dont fit in the new car lanes. Will modify the scale of the cars or make it a variable to make it automatically scale to fit/match the lanes
