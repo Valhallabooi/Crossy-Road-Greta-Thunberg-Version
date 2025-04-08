@@ -4,7 +4,6 @@ import sys
 import os
 import pygame_gui
 
-
 # Get the base directory of the script
 base_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -50,7 +49,14 @@ cars = []
 # Score system
 score = 0
 font = pygame.font.Font(None, 36)
-instruction_font = pygame.font.Font(None, 24)  # Smaller font for instructions
+instruction_font = pygame.font.Font(None, 24)
+
+# Game state variables
+background_offset = 0
+menu_open = False
+menu_elements = None
+game_over = False
+move_speed = 5  # Player movement speed
 
 # Load and scale images
 try:
@@ -64,7 +70,7 @@ try:
     car_image = pygame.transform.scale(car_image, 
                                       (CAR_WIDTH * SCALE_FACTOR, CAR_HEIGHT * SCALE_FACTOR))
     background_image = pygame.transform.scale(background_image, 
-                                                (SCREEN_WIDTH, SCREEN_HEIGHT))
+                                             (SCREEN_WIDTH, SCREEN_HEIGHT))
 except pygame.error as e:
     print(f"Error loading image: {e}")
     pygame.quit()
@@ -152,42 +158,16 @@ def check_collision(player_rect, car_rect):
             player_rect.y < car_rect.y + car_rect.height and
             player_rect.y + player_rect.height > car_rect.y)
 
-def handle_player_movement(key):
-    """Handle player movement and score update"""
-    global player_x, score, background_offset
-    
-    # Calculate current lane
-    current_lane = (player_x + PLAYER_WIDTH//2) // LANE_WIDTH
-    
-    if player_x < SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2:  # Move player until center of screen
-        # Move player to center of next lane (every 2 steps)
-        next_lane = current_lane + 1
-        target_x = (next_lane * LANE_WIDTH + LANE_WIDTH // 2) - PLAYER_WIDTH // 2
-        
-        # If player is already at target, move to next lane
-        if abs(player_x - target_x) < STEP_SIZE // 2:
-            next_lane += 1
-            target_x = (next_lane * LANE_WIDTH + LANE_WIDTH // 2) - PLAYER_WIDTH // 2
-            
-        # Move player toward target position
-        player_x = min(target_x, SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2)
-        score += 1
-    else:  # Move background and obstacles instead
-        background_offset -= LANE_WIDTH  # Move by full lane width
-        score += 1
-        for car in cars:
-            car["x"] -= LANE_WIDTH
-
-# Function to create the menu (with game over parameter)
 def create_menu(game_over=False):
+    """Create either regular menu or game over menu"""
     # Create a panel for the menu
     panel = pygame_gui.elements.UIPanel(
         relative_rect=pygame.Rect((SCREEN_WIDTH//2-150, SCREEN_HEIGHT//2-100), (300, 200)),
         manager=manager
     )
     
-    # Create title text based on game state
     if game_over:
+        # Game over menu with title and subtitle
         title_label = pygame_gui.elements.UILabel(
             relative_rect=pygame.Rect((50, 20), (200, 30)),
             text="Game Over!",
@@ -245,8 +225,8 @@ def create_menu(game_over=False):
         
         return panel, continue_button, restart_button, quit_button
 
-# Function to reset game state
 def reset_game():
+    """Reset all game variables to starting state"""
     global player_x, player_y, score, background_offset, cars, game_over
     
     # Reset player position
@@ -263,17 +243,39 @@ def reset_game():
     for _ in range(5):
         cars.append(create_car())
 
-# Add initial cars
+def handle_player_movement():
+    """Handle continuous player movement while space is held"""
+    global player_x, background_offset, score
+    
+    # Calculate current lane and target
+    current_lane = (player_x + PLAYER_WIDTH//2) // LANE_WIDTH
+    target_lane = current_lane + 1
+    target_x = (target_lane * LANE_WIDTH + LANE_WIDTH // 2) - PLAYER_WIDTH // 2
+    
+    # Check if player is in the center of the screen
+    if player_x >= SCREEN_WIDTH // 2 - PLAYER_WIDTH // 2:
+        # Move background and obstacles instead of player
+        movement = min(move_speed, LANE_WIDTH)
+        background_offset -= movement
+        for car in cars:
+            car["x"] -= movement
+        
+        # Increase score when we've moved a full lane width
+        if abs(background_offset % LANE_WIDTH) < move_speed:
+            score += 1
+    else:
+        # Move player toward target position
+        if player_x < target_x:
+            movement = min(move_speed, target_x - player_x)
+            player_x += movement
+            
+            # Increase score when we reach a new lane
+            if abs(player_x - target_x) < move_speed:
+                score += 1
+
+# Initialize game state
 for _ in range(5):
     cars.append(create_car())
-
-# Background scrolling offset
-background_offset = 0
-
-# Add menu state variables
-menu_open = False
-menu_elements = None
-game_over = False
 
 # Game loop
 running = True
@@ -294,8 +296,6 @@ while running:
                 else:
                     manager.clear_and_reset()
                     menu_elements = None
-            elif event.key == pygame.K_SPACE and not menu_open:  # Only move player when menu is closed
-                handle_player_movement(event.key)
         
         # Process UI events
         if menu_open:
@@ -328,6 +328,13 @@ while running:
     # Only update game state if menu is not open
     if not menu_open:
         screen.fill(WHITE)
+        
+        # Get keyboard state
+        keys = pygame.key.get_pressed()
+        
+        # Handle player movement with space key
+        if keys[pygame.K_SPACE]:
+            handle_player_movement()
         
         # Draw background (looping)
         for i in range(2):
@@ -362,34 +369,32 @@ while running:
                 game_over = True
                 menu_elements = create_menu(game_over=True)
 
-        # Display score
+        # Display score and instructions
         score_text = font.render(f"Score: {score}", True, BLACK)
         screen.blit(score_text, (10, 10))
         
-        # Add instruction text
         instruction_text = instruction_font.render("Press ESC for menu", True, BLACK)
-        screen.blit(instruction_text, (SCREEN_WIDTH - 160, 10))  # Position in top-right
+        screen.blit(instruction_text, (SCREEN_WIDTH - 160, 10))
+        
+        hold_text = instruction_font.render("Hold SPACE to move", True, BLACK)
+        screen.blit(hold_text, (SCREEN_WIDTH - 160, 30))
     else:
         # If menu is open, render the game in background
-        # (but don't update positions)
         
         # Draw background (looping)
         for i in range(2):
             screen.blit(background_image, ((background_offset % SCREEN_WIDTH) - SCREEN_WIDTH * i, 0))
         
-        # Draw lane markers for debugging
+        # Draw lane markers
         draw_lane_markers()
         
-        # Draw player
+        # Draw player and cars
         screen.blit(player_image, (player_x, player_y))
-        player_rect = pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT)
-        pygame.draw.rect(screen, BLACK, player_rect, 2)
+        pygame.draw.rect(screen, BLACK, pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT), 2)
 
-        # Draw cars (but don't update positions)
         for car in cars:
             screen.blit(car_image, (car["x"], car["y"]))
-            car_rect = pygame.Rect(car["x"], car["y"], CAR_WIDTH, CAR_HEIGHT)
-            pygame.draw.rect(screen, RED, car_rect, 2)
+            pygame.draw.rect(screen, RED, pygame.Rect(car["x"], car["y"], CAR_WIDTH, CAR_HEIGHT), 2)
 
         # Display score
         score_text = font.render(f"Score: {score}", True, BLACK)
