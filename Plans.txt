@@ -1,7 +1,12 @@
 #Fix spawn locations for cars
 #    Make the cars spawn in spesific columns with a distance between them big enough for the player to effectively be in a safe zone between them.
-Fix player movement
-    Change the player's step distance so that every 2 steps the player takes will place them in one of the safe lanes.
+#Fix player movement
+    #Change the player's step distance so that every 2 steps the player takes will place them in one of the safe lanes.: ended up altering it to smooth movement that moves the player when space key is pressed.
 #Fix scaling for car
 #    The cars dont fit in the new car lanes. Will modify the scale of the cars or make it a variable to make it automatically scale to fit/match the lanes
 Add other obstacles
+    Random generated trees and rocks to make the game visually appealing
+#Lane fix
+#    Because of the way that cars only spawn in selected lanes + the player movement this makes it so that when the player reaches the center the map will contenuesly contenue but when this is happening the lanes(car spawns) stay still. This makes the lane that the player ends up being stuck in a permanent safe zone. Effectively giving the player the option of eldlessly staying there.
+#Fix the point system
+#    The player only gets points after reaching the center: should get points from the start as well
