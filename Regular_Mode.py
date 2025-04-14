@@ -28,7 +28,7 @@ clock = pygame.time.Clock()
 FPS = 30
 
 # Debugging options
-DEBUG_MODE = False  # Set to False to disable debugging features
+DEBUG_MODE = False  # Set to False to disable debugging features and True to enable them
 if DEBUG_MODE:
     print("Debugging mode is enabled.")
 
