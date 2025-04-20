@@ -3,6 +3,7 @@ import random
 import sys
 import os
 import pygame_gui
+import subprocess
 
 # Get the base directory of the script
 base_path = os.path.dirname(os.path.abspath(__file__))
@@ -14,7 +15,7 @@ pygame.init()
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Crossy Road")
+pygame.display.set_caption("Crossy Road - Hard Mode")
 
 # Colors
 WHITE = (255, 255, 255)
@@ -29,42 +30,43 @@ FPS = 30
 
 # Debugging options
 DEBUG_MODE = False  # Set to False to disable debugging features
-if DEBUG_MODE:
-    print("Debugging mode is enabled.")
 
 # Game constants
 STEP_SIZE = 40
 SCALE_FACTOR = 2
-SAFE_DISTANCE = STEP_SIZE * 4
+SAFE_DISTANCE = STEP_SIZE * 2
 LANE_WIDTH = STEP_SIZE * 3
 
 # Player settings
 PLAYER_WIDTH = 40
 PLAYER_HEIGHT = 40
-player_x = 10  # Start near the left edge
-player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2  # Center vertically
+player_x = 10
+player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2
 
 # Car settings
 CAR_WIDTH = 60
 CAR_HEIGHT = 40
-car_speed_min = 3
-car_speed_max = 7
+car_speed_min = 7  # Higher starting speeds for hard mode
+car_speed_max = 12
 cars = []
 
-# Score system
-score = 0
-font = pygame.font.Font(None, 36)
-instruction_font = pygame.font.Font(None, 24)
-
 # Game state variables
+score = 0
 background_offset = 0
 menu_open = False
 menu_elements = None
 game_over = False
 move_speed = 8
-last_move_time = pygame.time.get_ticks() / 1000  # Initialize with current time
-afk_limit = 10  # Number of seconds before considering player AFK
-collision_state = False  # Tracks if the player is in a collision
+last_move_time = pygame.time.get_ticks() / 1000
+afk_limit = 10
+collision_state = False
+
+# Initialize pygame_gui manager
+manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+# Font initialization
+font = pygame.font.Font(None, 36)
+instruction_font = pygame.font.Font(None, 24)
 
 # Load and scale images
 def load_and_scale_image(filename, width, height):
@@ -102,20 +104,17 @@ PLAYER_HEIGHT *= SCALE_FACTOR
 CAR_WIDTH *= SCALE_FACTOR
 CAR_HEIGHT *= SCALE_FACTOR
 
-# Initialize pygame_gui manager
-manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
-
 # Initialize the current player image
 current_player_image = player_image
 
-# Helper functions
+# Game Functions
 def create_car():
     """Create a new car with proper lane positioning and safe distance from other cars"""
     num_lanes = SCREEN_WIDTH // LANE_WIDTH
     attempts = 0
     max_attempts = 10
     
-    # Use all lanes, not just even ones
+    # Use all lanes in hard mode, not just even ones
     available_lanes = list(range(0, num_lanes))
     lane_number = random.choice(available_lanes)
     lane_x = lane_number * LANE_WIDTH + LANE_WIDTH // 2  # Center of lane
@@ -128,7 +127,7 @@ def create_car():
         # Convert to integers for randint
         min_speed = int(car_speed_min)
         max_speed = int(car_speed_max)
-        # Make sure max is at least min
+        # Make sure max is at least min+1
         if max_speed <= min_speed:
             max_speed = min_speed + 1
             
@@ -144,13 +143,9 @@ def create_car():
         # Check distance to other cars
         too_close = False
         for car in cars_in_same_lane:
-            # For cars coming from top
-            if car_y == -CAR_HEIGHT and car["y"] < SCREEN_HEIGHT // 2:
-                if abs(car["y"] - car_y) < SAFE_DISTANCE:
-                    too_close = True
-                    break
-            # For cars coming from bottom
-            elif car_y == SCREEN_HEIGHT and car["y"] > SCREEN_HEIGHT // 2:
+            # For cars coming from top or bottom
+            if ((car_y == -CAR_HEIGHT and car["y"] < SCREEN_HEIGHT // 2) or
+                (car_y == SCREEN_HEIGHT and car["y"] > SCREEN_HEIGHT // 2)):
                 if abs(car["y"] - car_y) < SAFE_DISTANCE:
                     too_close = True
                     break
@@ -167,9 +162,8 @@ def create_car():
     # Fall back to last attempted position
     return {"x": lane_x - CAR_WIDTH // 2, "y": car_y, "speed": car_speed, "lane": lane_number}
 
-# Add a function to create a cluster of cars
 def create_car_cluster():
-    """Create a challenging cluster of cars in adjacent lanes"""
+    """Create a challenging cluster of cars in adjacent lanes (hard mode feature)"""
     num_lanes = SCREEN_WIDTH // LANE_WIDTH
     starting_lane = random.randint(0, num_lanes - 3)  # Leave room for at least 3 cars
     
@@ -193,13 +187,10 @@ def create_car_cluster():
     return cluster
 
 def detect_afk(last_move_time, afk_limit=10):
-    """
-    Detect if the player is AFK (Away From Keyboard) and notify them.
-    If the player remains AFK for too long, end the game.
-    """
+    """Detect if the player is AFK and notify them"""
     global menu_open, game_over, menu_elements
 
-    current_time = pygame.time.get_ticks() / 1000  # Convert milliseconds to seconds
+    current_time = pygame.time.get_ticks() / 1000
     time_since_last_move = current_time - last_move_time
     
     # Show warning when we're 3 seconds away from timeout
@@ -213,12 +204,11 @@ def detect_afk(last_move_time, afk_limit=10):
         time_left = afk_limit - time_since_last_move
         time_left_str = f"{time_left:.1f}" if time_left < 3 else f"{int(time_left)}"
         
-        # Main warning text
+        # Display warning and timer
         afk_warning = font.render("Move or the game will end!", True, RED)
-        screen.blit(afk_warning, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 20))
-        
-        # Countdown timer text
         timer_text = font.render(f"Time left: {time_left_str} s", True, BLACK)
+        
+        screen.blit(afk_warning, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 20))
         screen.blit(timer_text, (SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 10))
 
     if time_since_last_move > afk_limit:
@@ -231,10 +221,10 @@ def detect_afk(last_move_time, afk_limit=10):
 def draw_lane_markers():
     """Draw lane markers for debugging"""
     if not DEBUG_MODE:
-        return  # Skip drawing if debugging is disabled
+        return
 
     num_lanes = SCREEN_WIDTH // LANE_WIDTH
-    for i in range(num_lanes + 1):  # +1 for rightmost boundary
+    for i in range(num_lanes + 1):
         x_pos = i * LANE_WIDTH
         # Draw dashed lines
         for y in range(0, SCREEN_HEIGHT, 20):
@@ -255,14 +245,13 @@ def check_collision(player_rect, car_rect):
 
 def create_menu(game_over=False):
     """Create either regular menu or game over menu"""
-    # Create a panel for the menu
     panel = pygame_gui.elements.UIPanel(
-        relative_rect=pygame.Rect((SCREEN_WIDTH//2-150, SCREEN_HEIGHT//2-100), (300, 200)),
+        relative_rect=pygame.Rect((SCREEN_WIDTH//2-150, SCREEN_HEIGHT//2-120), (300, 240)),
         manager=manager
     )
     
     if game_over:
-        # Game over menu with title and subtitle
+        # Game over menu
         title_label = pygame_gui.elements.UILabel(
             relative_rect=pygame.Rect((50, 20), (200, 30)),
             text="Game Over!",
@@ -270,7 +259,6 @@ def create_menu(game_over=False):
             container=panel
         )
         
-        # Add final score display
         score_label = pygame_gui.elements.UILabel(
             relative_rect=pygame.Rect((30, 50), (240, 30)),
             text=f"Final Score: {score}",
@@ -285,7 +273,6 @@ def create_menu(game_over=False):
             container=panel
         )
         
-        # Create buttons for game over menu
         restart_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect((50, 110), (200, 40)),
             text="Try Again",
@@ -293,17 +280,23 @@ def create_menu(game_over=False):
             container=panel
         )
         
-        # Quit button for game over menu
-        quit_button = pygame_gui.elements.UIButton(
+        change_mode_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect((50, 150), (200, 40)),
+            text="Change Game Mode",
+            manager=manager,
+            container=panel
+        )
+        
+        quit_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((50, 190), (200, 40)),
             text="Quit Game",
             manager=manager,
             container=panel
         )
         
-        return panel, restart_button, quit_button
+        return panel, restart_button, change_mode_button, quit_button
     else:
-        # Regular menu buttons
+        # Regular menu
         continue_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect((50, 30), (200, 40)),
             text="Continue",
@@ -318,48 +311,46 @@ def create_menu(game_over=False):
             container=panel
         )
         
-        # Quit button for regular menu
-        quit_button = pygame_gui.elements.UIButton(
+        change_mode_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect((50, 130), (200, 40)),
+            text="Change Game Mode",
+            manager=manager,
+            container=panel
+        )
+        
+        quit_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((50, 180), (200, 40)),
             text="Quit Game",
             manager=manager,
             container=panel
         )
         
-        return panel, continue_button, restart_button, quit_button
+        return panel, continue_button, restart_button, change_mode_button, quit_button
 
 def reset_game():
     """Reset all game variables to starting state"""
-    global player_x, player_y, score, background_offset, cars, game_over, last_move_time, collision_state, current_player_image
+    global player_x, player_y, score, background_offset, cars
+    global game_over, last_move_time, collision_state, current_player_image
     
-    # Reset AFK timer
     last_move_time = pygame.time.get_ticks() / 1000
-    
-    # Reset collision state
     collision_state = False
-    
-    # Reset current player image to normal
     current_player_image = player_image
     
-    # Reset player position
     player_x = 10
     player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2
     
-    # Reset score and background
     score = 0
     background_offset = 0
     game_over = False
     
-    # Clear and recreate cars
     cars.clear()
-    for _ in range(5):
+    for _ in range(8):  # More cars in hard mode
         cars.append(create_car())
 
 def handle_player_movement():
     """Handle continuous player movement while space is held"""
     global player_x, background_offset, score, last_move_time, car_speed_min, car_speed_max
     
-    # Update last move time whenever player moves
     last_move_time = pygame.time.get_ticks() / 1000
     
     # Calculate current lane and target
@@ -384,7 +375,7 @@ def handle_player_movement():
             movement = min(move_speed, target_x - player_x)
             player_x += movement
             
-            # Track the previous lane to detect when we cross into a new lane
+            # Track lane change for scoring
             previous_lane = current_lane
             new_lane = (player_x + PLAYER_WIDTH//2) // LANE_WIDTH
             
@@ -392,9 +383,8 @@ def handle_player_movement():
             if new_lane > previous_lane:
                 score += 1
     
-    # Increase difficulty as score increases
+    # Hard mode: Increase difficulty as score increases
     if score > 0 and score % 10 == 0:
-        # Increase car speed every 10 points
         car_speed_min = min(car_speed_min + 0.5, 10)
         car_speed_max = min(car_speed_max + 0.5, 15)
 
@@ -402,36 +392,33 @@ def handle_collision(car):
     """Handle collision between player and car"""
     global collision_state, current_player_image, menu_open, game_over, menu_elements
     
-    collision_state = True  # Set collision state to True
-    current_player_image = player_collision_image  # Switch to collision image
+    collision_state = True
+    current_player_image = player_collision_image
     
-    if DEBUG_MODE:
-        print("Collision detected! Switching to collision image.")
-    
-    # Clear the screen to remove the previously drawn player image
+    # Clear and redraw the game screen
     screen.fill(WHITE)
     
-    # Redraw the background
+    # Draw background
     for i in range(2):
         screen.blit(background_image, ((background_offset % SCREEN_WIDTH) - SCREEN_WIDTH * i, 0))
     
-    # Redraw all cars except the one that caused the collision
+    # Draw all cars except the one that caused the collision
     for other_car in cars:
-        if other_car != car:  # Skip the car that caused the collision
+        if other_car != car:
             screen.blit(car_image, (other_car["x"], other_car["y"]))
     
     # Display the "How dare you!" quote
     quote_text = font.render("How dare you!", True, RED)
     screen.blit(quote_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 20))
     
-    # Draw only the collision image
+    # Draw collision image
     screen.blit(current_player_image, (player_x, player_y))
     
-    # Update the screen to show the changes immediately
+    # Update the screen
     pygame.display.flip()
     
-    # Add a delay to show the collision effect
-    pygame.time.delay(2000)  # 2-second delay
+    # Delay to show collision effect
+    pygame.time.delay(2000)
     
     # Transition to game over state
     menu_open = True
@@ -460,7 +447,7 @@ def draw_game_elements():
     
     # Process and draw cars
     for car in cars[:]:  # Use a copy to safely modify the list
-        # Random chance for cars to accelerate
+        # Hard mode feature: Random chance for cars to accelerate
         if random.random() < 0.01:  # 1% chance each frame
             car["speed"] *= 1.5  # Accelerate by 50%
         
@@ -484,12 +471,12 @@ def draw_game_elements():
             handle_collision(car)
             return False  # Signal to break out of the rendering loop
     
-    # Occasionally spawn car clusters
+    # Hard mode feature: Occasionally spawn car clusters
     if random.random() < 0.005 and score > 10:  # 0.5% chance each frame after score > 10
         car_cluster = create_car_cluster()
         cars.extend(car_cluster)
     
-    # Inside the game loop, periodically change car speeds
+    # Hard mode feature: Periodically change car speeds
     if random.random() < 0.02:  # 2% chance each frame
         for car in cars:
             # 50% chance to speed up, 50% chance to slow down
@@ -498,48 +485,29 @@ def draw_game_elements():
     
     # Display score and instructions
     score_text = font.render(f"Score: {score}", True, BLACK)
-    screen.blit(score_text, (10, 10))
     instruction_text = instruction_font.render("Press ESC for menu", True, BLACK)
-    screen.blit(instruction_text, (SCREEN_WIDTH - 160, 10))
     hold_text = instruction_font.render("Hold SPACE to move", True, BLACK)
+    
+    screen.blit(score_text, (10, 10))
+    screen.blit(instruction_text, (SCREEN_WIDTH - 160, 10))
     screen.blit(hold_text, (SCREEN_WIDTH - 160, 30))
     
     return True  # Signal to continue rendering
 
-def draw_menu_background():
-    """Draw the background when menu is open"""
-    # Draw background
-    draw_background()
+def return_to_launcher():
+    """Exit the current game and return to the launcher"""
+    python_executable = sys.executable
+    launcher_file = os.path.join(base_path, "Launcher.py")
     
-    # Draw lane markers if debugging
-    if DEBUG_MODE:
-        draw_lane_markers()
-    
-    # Draw player and cars
-    screen.blit(current_player_image, (player_x, player_y))
-    
-    # Only draw hitboxes if DEBUG_MODE is enabled
-    if DEBUG_MODE:
-        pygame.draw.rect(screen, BLACK, pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT), 2)
-    
-    for car in cars:
-        screen.blit(car_image, (car["x"], car["y"]))
-        
-        # Only draw hitboxes if DEBUG_MODE is enabled
-        if DEBUG_MODE:
-            pygame.draw.rect(screen, RED, pygame.Rect(car["x"], car["y"], CAR_WIDTH, CAR_HEIGHT), 2)
-    
-    # Display score
-    score_text = font.render(f"Score: {score}", True, BLACK)
-    screen.blit(score_text, (10, 10))
-    
-    # Dim the game screen under the menu
-    dim_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-    dim_surface.fill((0, 0, 0, 128))  # Semi-transparent black
-    screen.blit(dim_surface, (0, 0))
+    try:
+        pygame.quit()
+        subprocess.run([python_executable, launcher_file])
+        sys.exit()
+    except Exception as e:
+        print(f"Error returning to launcher: {e}")
 
-# Initialize game state
-for _ in range(5):
+# Initialize game by creating cars
+for _ in range(8):  # More cars in hard mode
     cars.append(create_car())
 
 # Game loop
@@ -557,7 +525,7 @@ while running:
             if event.key == pygame.K_ESCAPE:
                 menu_open = not menu_open
                 if menu_open:
-                    menu_elements = create_menu(game_over=False)  # Regular menu
+                    menu_elements = create_menu(game_over=False)
                 else:
                     manager.clear_and_reset()
                     menu_elements = None
@@ -567,24 +535,28 @@ while running:
             if event.type == pygame.USEREVENT:
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                     if game_over:
-                        if event.ui_element == menu_elements[1]:  # Restart button (game over menu)
-                            reset_game()  # Reset the game only when "Try Again" is pressed
-                            menu_open = False
-                            manager.clear_and_reset()
-                            menu_elements = None
-                        elif event.ui_element == menu_elements[2]:  # Quit button (game over menu)
-                            running = False
-                    else:
-                        if event.ui_element == menu_elements[1]:  # Continue button (regular menu)
-                            menu_open = False
-                            manager.clear_and_reset()
-                            menu_elements = None
-                        elif event.ui_element == menu_elements[2]:  # Restart button (regular menu)
+                        if event.ui_element == menu_elements[1]:  # Restart button
                             reset_game()
                             menu_open = False
                             manager.clear_and_reset()
                             menu_elements = None
-                        elif event.ui_element == menu_elements[3]:  # Quit button (regular menu)
+                        elif event.ui_element == menu_elements[2]:  # Change Mode button
+                            return_to_launcher()
+                        elif event.ui_element == menu_elements[3]:  # Quit button
+                            running = False
+                    else:
+                        if event.ui_element == menu_elements[1]:  # Continue button
+                            menu_open = False
+                            manager.clear_and_reset()
+                            menu_elements = None
+                        elif event.ui_element == menu_elements[2]:  # Restart button
+                            reset_game()
+                            menu_open = False
+                            manager.clear_and_reset()
+                            menu_elements = None
+                        elif event.ui_element == menu_elements[3]:  # Change Mode button
+                            return_to_launcher()
+                        elif event.ui_element == menu_elements[4]:  # Quit button
                             running = False
             
             # Process all UI events
@@ -593,15 +565,12 @@ while running:
     # Clear the screen
     screen.fill(WHITE)
     
-    # Only update game state if menu is not open
+    # Handle game state
     if not menu_open:
-        # Get keyboard state
-        keys = pygame.key.get_pressed()
-        
         # Handle player movement with space key
+        keys = pygame.key.get_pressed()
         if keys[pygame.K_SPACE]:
             handle_player_movement()
-            last_move_time = pygame.time.get_ticks() / 1000  # Update last move time
         
         # Draw all game elements
         if not draw_game_elements():
@@ -612,15 +581,31 @@ while running:
             detect_afk(last_move_time, afk_limit)
     else:
         # If menu is open, render the game in background
-        draw_menu_background()
+        draw_background()
+        draw_lane_markers()
+        
+        # Draw player and cars
+        screen.blit(current_player_image, (player_x, player_y))
+        if DEBUG_MODE:
+            pygame.draw.rect(screen, BLACK, pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT), 2)
+        
+        for car in cars:
+            screen.blit(car_image, (car["x"], car["y"]))
+            if DEBUG_MODE:
+                pygame.draw.rect(screen, RED, pygame.Rect(car["x"], car["y"], CAR_WIDTH, CAR_HEIGHT), 2)
+        
+        # Display score
+        score_text = font.render(f"Score: {score}", True, BLACK)
+        screen.blit(score_text, (10, 10))
+        
+        # Dim the game screen under the menu
+        dim_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        dim_surface.fill((0, 0, 0, 128))  # Semi-transparent black
+        screen.blit(dim_surface, (0, 0))
         
         # Update and draw UI
         manager.update(time_delta)
         manager.draw_ui(screen)
-    
-    # Only print debugging info if DEBUG_MODE is enabled
-    if DEBUG_MODE:
-        print(f"Current player image: {'Collision' if current_player_image == player_collision_image else 'Regular'}")
     
     # Update display
     pygame.display.flip()
