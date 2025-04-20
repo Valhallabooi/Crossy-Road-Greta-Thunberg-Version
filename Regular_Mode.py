@@ -60,6 +60,8 @@ move_speed = 8
 last_move_time = pygame.time.get_ticks() / 1000
 afk_limit = 10
 collision_state = False
+win_state = False
+WIN_SCORE = 50
 
 # Initialize pygame_gui manager
 manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -87,6 +89,9 @@ try:
     player_collision_image = load_and_scale_image("How_dare_you.png", 
                                                  PLAYER_WIDTH * SCALE_FACTOR, 
                                                  PLAYER_HEIGHT * SCALE_FACTOR)
+    player_win_image = load_and_scale_image("Sitting.png", 
+                                          PLAYER_WIDTH * SCALE_FACTOR, 
+                                          PLAYER_HEIGHT * SCALE_FACTOR)
     car_image = load_and_scale_image("car.png", 
                                     CAR_WIDTH * SCALE_FACTOR, 
                                     CAR_HEIGHT * SCALE_FACTOR)
@@ -211,14 +216,102 @@ def check_collision(player_rect, car_rect):
             player_rect.y < car_rect.y + car_rect.height and
             player_rect.y + player_rect.height > car_rect.y)
 
-def create_menu(game_over=False):
-    """Create either regular menu or game over menu"""
+def handle_win():
+    """Handle the win state when player reaches the goal score"""
+    global win_state, menu_open, menu_elements, current_player_image
+    
+    win_state = True
+    # Change player image to sitting image
+    current_player_image = player_win_image
+    
+    # Clear and redraw the game screen
+    screen.fill(WHITE)
+    draw_background()
+    
+    # Draw all game elements
+    for car in cars:
+        screen.blit(car_image, (car["x"], car["y"]))
+    
+    # Draw player with victory pose image
+    screen.blit(current_player_image, (player_x, player_y))
+    
+    # Create semi-transparent overlay for win message
+    overlay = pygame.Surface((400, 200), pygame.SRCALPHA)
+    overlay.fill((200, 255, 200, 200))  # Semi-transparent green
+    screen.blit(overlay, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
+    
+    # Display victory message
+    win_text = font.render("Victory!", True, GREEN)
+    score_text = font.render(f"Final Score: {score}", True, BLACK)
+    message_text = font.render("You've stopped all the cars!", True, BLACK)
+    
+    screen.blit(win_text, (SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 - 70))
+    screen.blit(score_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 30))
+    screen.blit(message_text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 10))
+    
+    # Update the screen
+    pygame.display.flip()
+    
+    # Delay to show win message
+    pygame.time.delay(2000)
+    
+    # Open menu with win options
+    menu_open = True
+    menu_elements = create_menu(game_over=False, win=True)
+
+def create_menu(game_over=False, win=False):
+    """Create either regular menu, win menu, or game over menu"""
     panel = pygame_gui.elements.UIPanel(
         relative_rect=pygame.Rect((SCREEN_WIDTH//2-150, SCREEN_HEIGHT//2-120), (300, 240)),
         manager=manager
     )
     
-    if game_over:
+    if win:
+        # Win menu
+        title_label = pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect((50, 20), (200, 30)),
+            text="Victory!",
+            manager=manager,
+            container=panel
+        )
+        
+        score_label = pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect((30, 50), (240, 30)),
+            text=f"Final Score: {score}",
+            manager=manager,
+            container=panel
+        )
+        
+        subtitle_label = pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect((30, 80), (240, 30)),
+            text="You've reached the goal!",
+            manager=manager,
+            container=panel
+        )
+        
+        restart_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((50, 110), (200, 40)),
+            text="Play Again",
+            manager=manager,
+            container=panel
+        )
+        
+        change_mode_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((50, 150), (200, 40)),
+            text="Change Game Mode",
+            manager=manager,
+            container=panel
+        )
+        
+        quit_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect((50, 190), (200, 40)),
+            text="Quit Game",
+            manager=manager,
+            container=panel
+        )
+        
+        return panel, restart_button, change_mode_button, quit_button
+    elif game_over:
         # Game over menu
         title_label = pygame_gui.elements.UILabel(
             relative_rect=pygame.Rect((50, 20), (200, 30)),
@@ -298,29 +391,37 @@ def create_menu(game_over=False):
 def reset_game():
     """Reset all game variables to starting state"""
     global player_x, player_y, score, background_offset, cars
-    global game_over, last_move_time, collision_state, current_player_image
+    global game_over, last_move_time, collision_state, current_player_image, win_state
     
     last_move_time = pygame.time.get_ticks() / 1000
     collision_state = False
-    current_player_image = player_image
+    win_state = False
+    current_player_image = player_image  # Reset to normal player image
     
+    # Reset player position
     player_x = 10
     player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2
     
+    # Reset score and background
     score = 0
     background_offset = 0
     game_over = False
     
+    # Clear and recreate cars
     cars.clear()
     for _ in range(8):
         cars.append(create_car())
 
 def handle_player_movement():
     """Handle continuous player movement while space is held"""
-    global player_x, background_offset, score, last_move_time
+    global player_x, background_offset, score, last_move_time, win_state
     
     last_move_time = pygame.time.get_ticks() / 1000
     
+    # Don't process movement if player has won
+    if win_state:
+        return
+        
     # Calculate current lane and target
     current_lane = (player_x + PLAYER_WIDTH//2) // LANE_WIDTH
     target_lane = current_lane + 1
@@ -350,6 +451,10 @@ def handle_player_movement():
             # Increase score when we cross into a new lane
             if new_lane > previous_lane:
                 score += 1
+    
+    # Check for win condition
+    if score >= WIN_SCORE and not win_state:
+        handle_win()
 
 def handle_collision(car):
     """Handle collision between player and car"""
@@ -410,10 +515,12 @@ def draw_game_elements():
     
     # Process and draw cars
     for car in cars[:]:  # Use a copy to safely modify the list
-        car["y"] += car["speed"]
+        # Only move cars if the player hasn't won
+        if not win_state:
+            car["y"] += car["speed"]
         
         # Remove cars that go off screen and add new ones
-        if car["y"] < -CAR_HEIGHT or car["y"] > SCREEN_HEIGHT:
+        if not win_state and (car["y"] < -CAR_HEIGHT or car["y"] > SCREEN_HEIGHT):
             cars.remove(car)
             cars.append(create_car())
             continue
@@ -426,12 +533,12 @@ def draw_game_elements():
             pygame.draw.rect(screen, RED, car_rect, 2)  # Car hitbox
         
         # Check for collision
-        if check_collision(player_rect, car_rect):
+        if not win_state and check_collision(player_rect, car_rect):
             handle_collision(car)
             return False  # Signal to break out of the rendering loop
     
-    # Display score and instructions
-    score_text = font.render(f"Score: {score}", True, BLACK)
+    # Display win progress
+    score_text = font.render(f"Score: {score}/{WIN_SCORE}", True, BLACK)
     instruction_text = instruction_font.render("Press ESC for menu", True, BLACK)
     hold_text = instruction_font.render("Hold SPACE to move", True, BLACK)
     
@@ -481,7 +588,7 @@ while running:
         if menu_open:
             if event.type == pygame.USEREVENT:
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
-                    if game_over:
+                    if game_over or win_state:  # Handle both game over and win menus the same way
                         if event.ui_element == menu_elements[1]:  # Restart button
                             reset_game()
                             menu_open = False
@@ -492,6 +599,7 @@ while running:
                         elif event.ui_element == menu_elements[3]:  # Quit button
                             running = False
                     else:
+                        # Regular menu handling
                         if event.ui_element == menu_elements[1]:  # Continue button
                             menu_open = False
                             manager.clear_and_reset()
@@ -506,7 +614,7 @@ while running:
                         elif event.ui_element == menu_elements[4]:  # Quit button
                             running = False
             
-            # Process all UI events
+            # Process all UI events - this should be aligned with the first if, not inside it
             manager.process_events(event)
     
     # Clear the screen
@@ -518,6 +626,11 @@ while running:
         keys = pygame.key.get_pressed()
         if keys[pygame.K_SPACE]:
             handle_player_movement()
+        
+        # Check for win condition
+        if score >= WIN_SCORE and not win_state:
+            handle_win()
+            continue
         
         # Draw all game elements
         if not draw_game_elements():
