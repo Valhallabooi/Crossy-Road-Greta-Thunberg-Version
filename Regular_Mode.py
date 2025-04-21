@@ -1,3 +1,10 @@
+"""
+Crossy Road - Greta Thunberg Edition (Regular Mode)
+A Crossy Road style game featuring Greta Thunberg as the main character.
+Player must navigate through traffic while avoiding cars.
+Regular mode offers standard difficulty gameplay.
+"""
+
 import pygame
 import random
 import sys
@@ -5,17 +12,20 @@ import os
 import pygame_gui
 import subprocess
 
+# --- INITIALIZATION ---
+
 # Get the base directory of the script
 base_path = os.path.dirname(os.path.abspath(__file__))
 
 # Initialize pygame
 pygame.init()
 
+# --- CONSTANTS ---
+
 # Screen dimensions and setup
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Crossy Road")
+FPS = 30
 
 # Colors
 WHITE = (255, 255, 255)
@@ -24,14 +34,9 @@ GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
-# Clock for controlling frame rate
-clock = pygame.time.Clock()
-FPS = 30
-
-# Debugging options
+# Game configuration
 DEBUG_MODE = False  # Set to False to disable debugging features
-
-# Game constants
+WIN_SCORE = 50      # Score needed to win in regular mode
 STEP_SIZE = 40
 SCALE_FACTOR = 2
 SAFE_DISTANCE = STEP_SIZE * 2
@@ -40,28 +45,21 @@ LANE_WIDTH = STEP_SIZE * 3
 # Player settings
 PLAYER_WIDTH = 40
 PLAYER_HEIGHT = 40
-player_x = 10
-player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2
 
 # Car settings
 CAR_WIDTH = 60
 CAR_HEIGHT = 40
 car_speed_min = 5
 car_speed_max = 10
-cars = []
 
-# Game state variables
-score = 0
-background_offset = 0
-menu_open = False
-menu_elements = None
-game_over = False
-move_speed = 8
-last_move_time = pygame.time.get_ticks() / 1000
-afk_limit = 10
-collision_state = False
-win_state = False
-WIN_SCORE = 50
+# --- SETUP ---
+
+# Create the game window
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Crossy Road")
+
+# Clock for controlling frame rate
+clock = pygame.time.Clock()
 
 # Initialize pygame_gui manager
 manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -70,7 +68,31 @@ manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
 font = pygame.font.Font(None, 36)
 instruction_font = pygame.font.Font(None, 24)
 
-# Load and scale images
+# --- GAME STATE VARIABLES ---
+
+# Player state
+player_x = 10
+player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2
+last_move_time = pygame.time.get_ticks() / 1000
+move_speed = 10
+afk_limit = 10
+
+# Game progress
+score = 0 
+background_offset = 0
+
+# Game flow control
+menu_open = False
+menu_elements = None
+game_over = False
+collision_state = False
+win_state = False
+
+# Object containers
+cars = []
+
+# --- HELPER FUNCTIONS ---
+
 def load_and_scale_image(filename, width, height):
     """Helper function to load and scale an image"""
     try:
@@ -81,8 +103,10 @@ def load_and_scale_image(filename, width, height):
         pygame.quit()
         sys.exit()
 
-# Load all images
+# --- LOAD RESOURCES ---
+
 try:
+    # Load all game images
     player_image = load_and_scale_image("Greta_Thunberg.png", 
                                        PLAYER_WIDTH * SCALE_FACTOR, 
                                        PLAYER_HEIGHT * SCALE_FACTOR)
@@ -112,14 +136,15 @@ CAR_HEIGHT *= SCALE_FACTOR
 # Initialize the current player image
 current_player_image = player_image
 
-# Game Functions
+# --- GAME FUNCTIONS ---
+
 def create_car():
     """Create a new car with proper lane positioning and safe distance from other cars"""
     num_lanes = SCREEN_WIDTH // LANE_WIDTH
     attempts = 0
     max_attempts = 10
     
-    # Only select even lane numbers (0, 2, 4, etc.)
+    # Only select even lane numbers (0, 2, 4, etc.) for regular mode
     available_lanes = list(range(0, num_lanes, 2))
     lane_number = random.choice(available_lanes)
     lane_x = lane_number * LANE_WIDTH + LANE_WIDTH // 2  # Center of lane
@@ -560,11 +585,14 @@ def return_to_launcher():
     except Exception as e:
         print(f"Error returning to launcher: {e}")
 
+# --- GAME INITIALIZATION ---
+
 # Initialize game by creating cars
 for _ in range(8):
     cars.append(create_car())
 
-# Game loop
+# --- MAIN GAME LOOP ---
+
 running = True
 while running:
     time_delta = clock.tick(FPS)/1000.0
@@ -614,7 +642,7 @@ while running:
                         elif event.ui_element == menu_elements[4]:  # Quit button
                             running = False
             
-            # Process all UI events - this should be aligned with the first if, not inside it
+            # Process all UI events
             manager.process_events(event)
     
     # Clear the screen
@@ -637,7 +665,7 @@ while running:
             continue  # Skip the rest of this loop iteration if collision occurred
         
         # Check AFK status
-        if not game_over:
+        if not game_over and not win_state:
             detect_afk(last_move_time, afk_limit)
     else:
         # If menu is open, render the game in background
@@ -670,4 +698,5 @@ while running:
     # Update display
     pygame.display.flip()
 
+# Clean up and exit
 pygame.quit()

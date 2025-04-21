@@ -1,3 +1,10 @@
+"""
+Crossy Road - Greta Thunberg Edition (Hard Mode)
+A more challenging version of the Crossy Road game featuring Greta Thunberg.
+Player must navigate through more traffic at higher speeds, with cars in all lanes.
+Hard mode features dynamic difficulty that increases as the player progresses.
+"""
+
 import pygame
 import random
 import sys
@@ -5,17 +12,20 @@ import os
 import pygame_gui
 import subprocess
 
+# --- INITIALIZATION ---
+
 # Get the base directory of the script
 base_path = os.path.dirname(os.path.abspath(__file__))
 
 # Initialize pygame
 pygame.init()
 
+# --- CONSTANTS ---
+
 # Screen dimensions and setup
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Crossy Road - Hard Mode")
+FPS = 30
 
 # Colors
 WHITE = (255, 255, 255)
@@ -24,14 +34,9 @@ GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
-# Clock for controlling frame rate
-clock = pygame.time.Clock()
-FPS = 30
-
-# Debugging options
+# Game configuration
 DEBUG_MODE = False  # Set to False to disable debugging features
-
-# Game constants
+WIN_SCORE = 30      # Score needed to win in hard mode
 STEP_SIZE = 40
 SCALE_FACTOR = 2
 SAFE_DISTANCE = STEP_SIZE * 2
@@ -40,28 +45,21 @@ LANE_WIDTH = STEP_SIZE * 3
 # Player settings
 PLAYER_WIDTH = 40
 PLAYER_HEIGHT = 40
-player_x = 10
-player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2
 
 # Car settings
 CAR_WIDTH = 60
 CAR_HEIGHT = 40
-car_speed_min = 7  # Higher starting speeds for hard mode
+car_speed_min = 7   # Higher starting speeds for hard mode
 car_speed_max = 12
-cars = []
 
-# Game state variables
-score = 0
-background_offset = 0
-menu_open = False
-menu_elements = None
-game_over = False
-move_speed = 10
-last_move_time = pygame.time.get_ticks() / 1000
-afk_limit = 10
-collision_state = False
-win_state = False
-WIN_SCORE = 30  # Score needed to win in hard mode
+# --- SETUP ---
+
+# Create the game window
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Crossy Road - Hard Mode")
+
+# Clock for controlling frame rate
+clock = pygame.time.Clock()
 
 # Initialize pygame_gui manager
 manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -70,7 +68,31 @@ manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
 font = pygame.font.Font(None, 36)
 instruction_font = pygame.font.Font(None, 24)
 
-# Load and scale images
+# --- GAME STATE VARIABLES ---
+
+# Player state
+player_x = 10
+player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2
+last_move_time = pygame.time.get_ticks() / 1000
+move_speed = 13
+afk_limit = 10
+
+# Game progress
+score = 0 
+background_offset = 0
+
+# Game flow control
+menu_open = False
+menu_elements = None
+game_over = False
+collision_state = False
+win_state = False
+
+# Object containers
+cars = []
+
+# --- HELPER FUNCTIONS ---
+
 def load_and_scale_image(filename, width, height):
     """Helper function to load and scale an image"""
     try:
@@ -81,8 +103,10 @@ def load_and_scale_image(filename, width, height):
         pygame.quit()
         sys.exit()
 
-# Load all images
+# --- LOAD RESOURCES ---
+
 try:
+    # Load all game images
     player_image = load_and_scale_image("Greta_Thunberg.png", 
                                        PLAYER_WIDTH * SCALE_FACTOR, 
                                        PLAYER_HEIGHT * SCALE_FACTOR)
@@ -112,7 +136,8 @@ CAR_HEIGHT *= SCALE_FACTOR
 # Initialize the current player image
 current_player_image = player_image
 
-# Game Functions
+# --- GAME FUNCTIONS ---
+
 def create_car():
     """Create a new car with proper lane positioning and safe distance from other cars"""
     num_lanes = SCREEN_WIDTH // LANE_WIDTH
@@ -248,6 +273,49 @@ def check_collision(player_rect, car_rect):
             player_rect.y < car_rect.y + car_rect.height and
             player_rect.y + player_rect.height > car_rect.y)
 
+def handle_win():
+    """Handle the win state when player reaches the goal score"""
+    global win_state, menu_open, menu_elements, current_player_image
+    
+    win_state = True
+    # Change player image to sitting image
+    current_player_image = player_win_image
+    
+    # Clear and redraw the game screen
+    screen.fill(WHITE)
+    draw_background()
+    
+    # Draw all game elements
+    for car in cars:
+        screen.blit(car_image, (car["x"], car["y"]))
+    
+    # Draw player with victory pose image
+    screen.blit(current_player_image, (player_x, player_y))
+    
+    # Create semi-transparent overlay for win message
+    overlay = pygame.Surface((400, 200), pygame.SRCALPHA)
+    overlay.fill((200, 255, 200, 200))  # Semi-transparent green
+    screen.blit(overlay, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
+    
+    # Display victory message
+    win_text = font.render("Victory!", True, GREEN)
+    score_text = font.render(f"Final Score: {score}", True, BLACK)
+    message_text = font.render("You've mastered Hard Mode!", True, BLACK)
+    
+    screen.blit(win_text, (SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 - 70))
+    screen.blit(score_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 30))
+    screen.blit(message_text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 10))
+    
+    # Update the screen
+    pygame.display.flip()
+    
+    # Delay to show win message
+    pygame.time.delay(2000)
+    
+    # Open menu with win options
+    menu_open = True
+    menu_elements = create_menu(game_over=False, win=True)
+
 def create_menu(game_over=False, win=False):
     """Create either regular menu, win menu, or game over menu"""
     panel = pygame_gui.elements.UIPanel(
@@ -381,19 +449,27 @@ def reset_game():
     """Reset all game variables to starting state"""
     global player_x, player_y, score, background_offset, cars
     global game_over, last_move_time, collision_state, current_player_image, win_state
+    global car_speed_min, car_speed_max
     
     last_move_time = pygame.time.get_ticks() / 1000
     collision_state = False
     win_state = False
     current_player_image = player_image  # Reset to normal player image
     
+    # Reset player position
     player_x = 10
     player_y = SCREEN_HEIGHT // 2 - PLAYER_HEIGHT // 2
     
+    # Reset score and background
     score = 0
     background_offset = 0
     game_over = False
     
+    # Reset car speeds to initial values
+    car_speed_min = 7  # Higher starting speeds for hard mode
+    car_speed_max = 12
+    
+    # Clear and recreate cars
     cars.clear()
     for _ in range(8):  # More cars in hard mode
         cars.append(create_car())
@@ -484,49 +560,6 @@ def handle_collision(car):
     game_over = True
     menu_elements = create_menu(game_over=True)
 
-def handle_win():
-    """Handle the win state when player reaches the goal score"""
-    global win_state, menu_open, menu_elements, current_player_image
-    
-    win_state = True
-    # Change player image to sitting image
-    current_player_image = player_win_image
-    
-    # Clear and redraw the game screen
-    screen.fill(WHITE)
-    draw_background()
-    
-    # Draw all game elements
-    for car in cars:
-        screen.blit(car_image, (car["x"], car["y"]))
-    
-    # Draw player with victory pose image
-    screen.blit(current_player_image, (player_x, player_y))
-    
-    # Create semi-transparent overlay for win message
-    overlay = pygame.Surface((400, 200), pygame.SRCALPHA)
-    overlay.fill((200, 255, 200, 200))  # Semi-transparent green
-    screen.blit(overlay, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
-    
-    # Display victory message
-    win_text = font.render("Victory!", True, GREEN)
-    score_text = font.render(f"Final Score: {score}", True, BLACK)
-    message_text = font.render("You've mastered Hard Mode!", True, BLACK)
-    
-    screen.blit(win_text, (SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 - 70))
-    screen.blit(score_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 30))
-    screen.blit(message_text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 10))
-    
-    # Update the screen
-    pygame.display.flip()
-    
-    # Delay to show win message
-    pygame.time.delay(2000)
-    
-    # Open menu with win options
-    menu_open = True
-    menu_elements = create_menu(game_over=False, win=True)
-
 def draw_background():
     """Draw the game background"""
     for i in range(2):
@@ -612,11 +645,14 @@ def return_to_launcher():
     except Exception as e:
         print(f"Error returning to launcher: {e}")
 
+# --- GAME INITIALIZATION ---
+
 # Initialize game by creating cars
 for _ in range(8):  # More cars in hard mode
     cars.append(create_car())
 
-# Game loop
+# --- MAIN GAME LOOP ---
+
 running = True
 while running:
     time_delta = clock.tick(FPS)/1000.0
@@ -666,7 +702,7 @@ while running:
                         elif event.ui_element == menu_elements[4]:  # Quit button
                             running = False
             
-            # Process all UI events - this should be aligned with the first if, not inside it
+            # Process all UI events
             manager.process_events(event)
     
     # Clear the screen
@@ -722,4 +758,5 @@ while running:
     # Update display
     pygame.display.flip()
 
+# Clean up and exit
 pygame.quit()

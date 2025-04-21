@@ -10,3 +10,5 @@ Add other obstacles
 #    Because of the way that cars only spawn in selected lanes + the player movement this makes it so that when the player reaches the center the map will contenuesly contenue but when this is happening the lanes(car spawns) stay still. This makes the lane that the player ends up being stuck in a permanent safe zone. Effectively giving the player the option of eldlessly staying there.
 #Fix the point system
 #    The player only gets points after reaching the center: should get points from the start as well
+#Add Final goal
+#    After the player reaches a certain score the game will end

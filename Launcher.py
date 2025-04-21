@@ -1,46 +1,65 @@
+"""
+Crossy Road - Greta Thunberg Edition (Launcher)
+Mode selection screen for the Crossy Road game featuring Greta Thunberg.
+Allows players to choose between Regular mode and Hard mode.
+"""
+
 import pygame
 import pygame_gui
 import sys
 import os
 import subprocess
 
+# --- INITIALIZATION ---
+
 # Initialize pygame
 pygame.init()
+
+# Get the base directory of the script
+base_path = os.path.dirname(os.path.abspath(__file__))
+
+# --- CONSTANTS ---
 
 # Screen dimensions and setup
 SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 400
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Crossy Road - Mode Selection")
+FPS = 30
 
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 
+# --- SETUP ---
+
+# Create the game window
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Crossy Road - Mode Selection")
+
 # Clock for controlling frame rate
 clock = pygame.time.Clock()
-FPS = 30
 
 # Initialize pygame_gui manager
 manager = pygame_gui.UIManager((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-# Get the base directory of the script
-base_path = os.path.dirname(os.path.abspath(__file__))
+# --- LOAD RESOURCES ---
 
 # Load background image for launcher
 try:
     background_image = pygame.image.load(os.path.join(base_path, "background.png"))
     background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
-except:
+except Exception as e:
+    print(f"Error loading background image: {e}")
     # If loading fails, use a solid color
     background_image = None
 
-# Create title and buttons
+# Initialize fonts and text
 title_font = pygame.font.Font(None, 48)
 title_text = title_font.render("Crossy Road", True, BLACK)
 subtitle_font = pygame.font.Font(None, 28)
 subtitle_text = subtitle_font.render("Greta Thunberg Edition", True, BLACK)
+
+# --- UI ELEMENTS ---
 
 # Create a panel for the menu
 panel = pygame_gui.elements.UIPanel(
@@ -82,12 +101,14 @@ quit_button = pygame_gui.elements.UIButton(
     container=panel
 )
 
+# --- GAME FUNCTIONS ---
+
 def launch_game_mode(mode):
     """Launch the selected game mode"""
     python_executable = sys.executable
     
     if mode == "regular":
-        game_file = os.path.join(base_path, "Regular_Mode.py")  # Changed from Main.py
+        game_file = os.path.join(base_path, "Regular_Mode.py")
     else:
         game_file = os.path.join(base_path, "Hard_Mode.py")
     
@@ -102,7 +123,8 @@ def launch_game_mode(mode):
         print(f"Error launching game: {e}")
         return
 
-# Game loop
+# --- MAIN GAME LOOP ---
+
 running = True
 while running:
     time_delta = clock.tick(FPS)/1000.0
@@ -148,6 +170,8 @@ while running:
     # Update display
     pygame.display.flip()
 
-# Clean up
+# --- CLEANUP ---
+
+# Clean up and exit
 pygame.quit()
 sys.exit()

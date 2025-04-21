@@ -24,6 +24,7 @@ Make sure you have the following files in your game directory:
   - `car.png` - Car obstacles
   - `Greta_Thunberg.png` - Player character
   - `How_dare_you.png` - Collision animation
+  - `Sitting.png` - Victory pose
 
 ## How to Play
 
@@ -35,15 +36,18 @@ Make sure you have the following files in your game directory:
 - Hold SPACE to advance forward through traffic
 - Avoid colliding with cars
 - Your score increases as you move forward
+- Win by reaching 50 points in Regular Mode or 30 points in Hard Mode
 - Beware of being idle too long - the game will end if you're AFK!
 
 ### Game Modes:
-- **Regular Mode**: Standard gameplay experience
-- **Hard Mode**: Faster cars, more obstacles, and less forgiving gameplay
+- **Regular Mode**: Standard gameplay experience (win at 50 points)
+- **Hard Mode**: Faster cars, more obstacles, and less forgiving gameplay (win at 30 points)
 
 ## Features
 - Smooth, lane-based movement system
 - Dynamic car obstacles that move vertically
+- Win condition with victory screen and stopped cars
+- Progress tracking showing current score/target
 - Collision detection with "How dare you!" animation
 - AFK detection with warning system
 - Background scrolling to simulate continuous movement
